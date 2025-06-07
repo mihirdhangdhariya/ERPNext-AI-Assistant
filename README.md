@@ -44,7 +44,7 @@ ERPNext's powerful features come with complexity.
 **Type:** In-memory store with disk persistence  
 **Purpose:** Semantic storage of conversational context
 
-### Schema:
+Schema:
 ```json
 {
   "vector_id": "faiss_index",
