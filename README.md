@@ -53,7 +53,8 @@ ERPNext's powerful features come with complexity.
   "department": "Accounts",
   "timestamp": 1717200000,
   "embedding": [0.21, -0.34, ..., 0.78]
-}
+}'''
+
 Supporting Storage:
 Context snapshots: JSON files
 
@@ -145,7 +146,4 @@ Error rate	<4%
 The ERPNext AI Assistant redefines enterprise UX by enabling natural conversations with ERP systems.
 By combining LLaMA-3's reasoning, contextual memory, self-healing logic, and modular agents—it streamlines operations and enables instant productivity across departments.
 
-🧠 Built to demonstrate next-gen ERP interaction for 8848 Digital
-📬 Contact: mihir@8848digital.com
-🔗[ View Source Code](https://github.com/mihirdhangdhariya/ERPNext-AI-Assistant)
-🎥 [Watch the Demo](https://www.loom.com/share/9d319950a8fa42b3bfa59f48b34b42f3)
+
