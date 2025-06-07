@@ -1,4 +1,4 @@
-# ERPNext AI Assistant: Technical Assignment Submission  
+# ERPNext AI Assistant:
 **Prepared by:** Mihir Dhangdhariya  
 **Demo:** [Watch Video](https://www.loom.com/share/9d319950a8fa42b3bfa59f48b34b42f3)  
 **Source Code:** [GitHub Repo](https://github.com/mihirdhangdhariya/ERPNext-AI-Assistant)
