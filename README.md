@@ -44,7 +44,7 @@ ERPNext's powerful features come with complexity.
 **Type:** In-memory store with disk persistence  
 **Purpose:** Semantic storage of conversational context
 
-Schema:
+###Schema:
 '''json
 {
   "vector_id": "faiss_index",
@@ -53,7 +53,9 @@ Schema:
   "department": "Accounts",
   "timestamp": 1717200000,
   "embedding": [0.21, -0.34, ..., 0.78]
+
 }'''
+
 
 Supporting Storage:
 Context snapshots: JSON files
