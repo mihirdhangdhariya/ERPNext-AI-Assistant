@@ -45,7 +45,7 @@ ERPNext's powerful features come with complexity.
 **Purpose:** Semantic storage of conversational context
 
 Schema:
-```json
+'''json
 {
   "vector_id": "faiss_index",
   "query": "Show unpaid invoices",
