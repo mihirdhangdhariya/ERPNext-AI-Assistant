@@ -11,3 +11,4 @@ openai
 langchain-openai
 tabulate
 numpy
+langchain-core

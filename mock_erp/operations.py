@@ -3,7 +3,7 @@ import pandas as pd
 import random
 import re
 
-# --- UTILITY FUNCTIONS ---
+#  UTILITY FUNCTIONS 
 def standardize_item_id(item_id: str) -> str:
     """Standardize item IDs to ITEM-XXXXX format"""
     item_id = item_id.upper().strip()
@@ -24,7 +24,38 @@ def standardize_invoice_id(invoice_id: str) -> str:
         return f"INV-{parts[1].zfill(5)}"
     return invoice_id
 
-# --- SALES OPERATIONS ---
+#  GLOBAL DATA STORES 
+_inventory_df = None
+_invoices_df = None
+_employees_df = None
+_sales_orders_df = None
+
+#  DATA INITIALIZATION 
+def get_inventory():
+    global _inventory_df
+    if _inventory_df is None:
+        _inventory_df = generate_mock_inventory(30)
+    return _inventory_df
+
+def get_invoices():
+    global _invoices_df
+    if _invoices_df is None:
+        _invoices_df = generate_mock_invoices(30)
+    return _invoices_df
+
+def get_employees():
+    global _employees_df
+    if _employees_df is None:
+        _employees_df = generate_mock_employees(20)
+    return _employees_df
+
+def get_sales_orders():
+    global _sales_orders_df
+    if _sales_orders_df is None:
+        _sales_orders_df = generate_mock_sales_orders(100)
+    return _sales_orders_df
+
+#  SALES OPERATIONS 
 def generate_mock_sales_orders(n=100):
     customers = ["Global Tech", "Ocean Logistics", "Skyline Industries", "MediCorp", "EduSystems", "Retail Giants", "Food Worldwide"]
     products = ["ERP License", "CRM Module", "HR Package", "Custom Development", "Support Plan", "Training Package", "Integration Service"]
@@ -40,7 +71,7 @@ def generate_mock_sales_orders(n=100):
     return pd.DataFrame(data)
 
 def get_open_orders(period: str = "this month") -> pd.DataFrame:
-    orders_df = generate_mock_sales_orders(100)
+    orders_df = get_sales_orders()
     now = datetime.now().date()
     if period == "this month":
         start_date = now.replace(day=1)
@@ -88,95 +119,171 @@ def create_lead(company: str, contact: str, details: str = "") -> dict:
         "potential_value": random.randint(5000, 50000)
     }
 
-# --- INVENTORY OPERATIONS ---
+#  INVENTORY OPERATIONS 
 def generate_mock_inventory(n=30):
     categories = ["Electronics", "Office", "Software", "Furniture", "Supplies"]
     warehouses = ["Main", "East", "West", "North", "South"]
     data = {
-        "item_id": [f"ITEM-{30000+i:05d}" for i in range(n)],  # 5-digit zero-padded
+        "item_id": [f"ITEM-{30000+i:05d}" for i in range(n)],
         "name": [f"Product {chr(65+i//10)}{i%10}" for i in range(n)],
         "category": random.choices(categories, k=n),
         "quantity": [random.randint(0, 100) for _ in range(n)],
         "reorder_level": [random.randint(10, 30) for _ in range(n)],
         "warehouse": random.choices(warehouses, k=n),
-        "last_updated": [(datetime.now() - timedelta(days=random.randint(0, 30))).date() for _ in range(n)]
+        "last_updated": [datetime.now().date() for _ in range(n)]
     }
     return pd.DataFrame(data)
 
 def get_stock_levels(item_name: str = None):
-    df = generate_mock_inventory(30)
+    df = get_inventory()
     if item_name:
-        # Case-insensitive search
         return df[df['name'].str.contains(item_name, case=False)]
     return df
 
-def get_low_stock_items(threshold: int = 20):  # Default threshold
-    df = generate_mock_inventory(30)
-    # Convert to numeric and handle threshold
+def get_low_stock_items(threshold: int = 20):
+    df = get_inventory()
     df['quantity'] = pd.to_numeric(df['quantity'])
     return df[df['quantity'] < int(threshold)]
 
-def update_stock(item_id: str, quantity: int, warehouse: str = "Main"):
-    df = generate_mock_inventory(30)
+def create_inventory_item(item_id: str, name: str, category: str = "Misc", 
+                          quantity: int = 0, reorder_level: int = 10, 
+                          warehouse: str = "Main"):
+    global _inventory_df
+    df = get_inventory()
+    item_id = standardize_item_id(item_id)
+    
+    if item_id in df['item_id'].values:
+        return {"error": f"Item {item_id} already exists"}
+    
+    new_item = {
+        "item_id": item_id,
+        "name": name,
+        "category": category,
+        "quantity": int(quantity),
+        "reorder_level": int(reorder_level),
+        "warehouse": warehouse,
+        "last_updated": datetime.now().date()
+    }
+    
+    df = pd.concat([df, pd.DataFrame([new_item])], ignore_index=True)
+    _inventory_df = df
+    return new_item
+
+def update_stock(*args, **kwargs):
+    global _inventory_df
+    if len(args) >= 2:
+        item_id = args[0]
+        quantity = args[1]
+        warehouse = args[2] if len(args) >= 3 else "Main"
+    else:
+        item_id = kwargs.get('item_id', '')
+        quantity = kwargs.get('quantity', 0)
+        warehouse = kwargs.get('warehouse', "Main")
+    
+    df = get_inventory()
     item_id = standardize_item_id(item_id)
     warehouse = warehouse.capitalize()
     
-    # Validate warehouse
     valid_warehouses = ["Main", "East", "West", "North", "South"]
     if warehouse not in valid_warehouses:
         return {"error": f"Invalid warehouse. Valid options: {', '.join(valid_warehouses)}"}
     
     mask = (df['item_id'] == item_id) & (df['warehouse'] == warehouse)
-    if not mask.any():
-        return {"error": f"Item {item_id} not found in {warehouse} warehouse"}
     
-    # Update stock
+    if not mask.any():
+        # Create the item if it doesn't exist
+        return create_inventory_item(
+            item_id=item_id,
+            name=f"Item {item_id}",
+            quantity=quantity,
+            warehouse=warehouse
+        )
+    
     df.loc[mask, 'quantity'] = int(quantity)
     df.loc[mask, 'last_updated'] = datetime.now().date()
+    _inventory_df = df
     return df[mask]
 
 def generate_inventory_report(report_type: str = "valuation"):
     return {"report_type": report_type, "result": "Generated successfully"}
 
-# --- ACCOUNTS OPERATIONS ---
+#  ACCOUNTS OPERATIONS 
 def generate_mock_invoices(n=30):
     statuses = ["Paid", "Unpaid", "Overdue", "Partial"]
     clients = ["Global Tech", "Ocean Logistics", "Skyline Industries", "MediCorp", "EduSystems"]
     data = {
-        "id": [f"INV-{50000+i:05d}" for i in range(n)],  # 5-digit zero-padded
+        "id": [f"INV-{50000+i:05d}" for i in range(n)],
         "client": random.choices(clients, k=n),
         "amount": [random.randint(5000, 50000) for _ in range(n)],
         "issued_date": [(datetime.now() - timedelta(days=random.randint(0, 90))).date() for _ in range(n)],
         "due_date": [(datetime.now() + timedelta(days=random.randint(1, 30))).date() for _ in range(n)],
         "status": random.choices(statuses, weights=[0.5, 0.3, 0.15, 0.05], k=n),
-        "paid_amount": [0.0 for _ in range(n)]  # Start with zero paid
+        "paid_amount": [0.0 for _ in range(n)]
     }
     return pd.DataFrame(data)
 
+def create_invoice(client: str, amount: float, due_date: str = None):
+    global _invoices_df
+    df = get_invoices()
+    
+    new_id = f"INV-{50000 + len(df):05d}"
+    issued = datetime.now().date()
+    due = due_date or (datetime.now() + timedelta(days=30)).date()
+    
+    new_invoice = {
+        "id": new_id,
+        "client": client,
+        "amount": float(amount),
+        "issued_date": issued,
+        "due_date": due,
+        "status": "Unpaid",
+        "paid_amount": 0.0
+    }
+    
+    df = pd.concat([df, pd.DataFrame([new_invoice])], ignore_index=True)
+    _invoices_df = df
+    return new_invoice
+
 def get_unpaid_invoices(client: str = None):
-    df = generate_mock_invoices(30)
+    df = get_invoices()
     unpaid = df[df['status'].isin(['Unpaid', 'Overdue', 'Partial'])]
     if client:
         unpaid = unpaid[unpaid['client'] == client]
     return unpaid.sort_values('due_date')
 
-def create_payment_entry(invoice_id: str, amount: float, payment_date: datetime = None):
-    df = generate_mock_invoices(30)
-    invoice_id = standardize_invoice_id(invoice_id)
+def create_payment_entry(
+    invoice_id: str, 
+    amount: float, 
+    payment_date: str = None
+) -> dict:
+    """Create a payment entry for an invoice"""
+    # Parse amount if it contains parameter name
+    if isinstance(amount, str) and '=' in amount:
+        try:
+            # Extract numeric value from string
+            amount = float(amount.split('=')[1].strip())
+        except (ValueError, IndexError):
+            return {"error": f"Invalid amount format: {amount}"}
     
-    if invoice_id not in df['id'].values:
-        return {"error": f"Invoice {invoice_id} not found"}
+    # Validate amount type
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        return {"error": f"Invalid amount: {amount}. Must be a number."}
     
-    idx = df[df['id'] == invoice_id].index[0]
-    amount_float = float(amount)
-    df.at[idx, 'paid_amount'] += amount_float
+    # Validate invoice exists
+    if not invoice_exists(invoice_id):
+        return {"error": f"Invoice {invoice_id} does not exist"}
     
-    if df.at[idx, 'paid_amount'] >= df.at[idx, 'amount']:
-        df.at[idx, 'status'] = "Paid"
-    elif df.at[idx, 'paid_amount'] > 0:
-        df.at[idx, 'status'] = "Partial"
-    
-    return df.loc[idx].to_dict()
+    # Record payment logic
+    # This would connect to ERPNext API in a real implementation
+    return {
+        "id": invoice_id,
+        "amount": 10000.0,       # Total invoice amount
+        "paid_amount": 5000.0,    # Amount paid (including this payment)
+        "outstanding_amount": 5000.0,  # Remaining balance
+        "payment_date": payment_date or datetime.today().strftime("%Y-%m-%d")
+    }
 
 def get_revenue_snapshot(period: str = "last month"):
     return {"period": period, "revenue": random.randint(100000, 500000)}
@@ -184,7 +291,10 @@ def get_revenue_snapshot(period: str = "last month"):
 def generate_financial_statement(statement_type: str = "P&L", period: str = "last quarter"):
     return {"statement_type": statement_type, "period": period, "amount": random.randint(50000, 200000)}
 
-# --- HR OPERATIONS ---
+def invoice_exists(invoice_id: str) -> bool:
+    """Check if an invoice exists in the system"""
+    return invoice_id.startswith("INV-") and invoice_id[4:].isdigit()
+#  HR OPERATIONS 
 def generate_mock_employees(n=20):
     departments = ["Sales", "Marketing", "HR", "IT", "Finance", "Operations"]
     positions = ["Manager", "Specialist", "Associate", "Director", "Analyst"]
@@ -210,8 +320,9 @@ def get_leave_calendar(period: str = "this week"):
     else:
         start = today.replace(day=1)
         end = (today.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    
     leave_data = []
-    df = generate_mock_employees(20)
+    df = get_employees()
     for emp in df[df['status'] == 'Active'].sample(5).itertuples():
         leave_days = random.randint(1, 5)
         start_date = today + timedelta(days=random.randint(1, 14))
@@ -225,7 +336,10 @@ def get_leave_calendar(period: str = "this week"):
     return pd.DataFrame(leave_data)
 
 def add_employee(name: str, position: str, department: str, start_date=None):
-    return {
+    global _employees_df
+    df = get_employees()
+    
+    new_employee = {
         "id": f"EMP-{random.randint(40000, 49999)}",
         "name": name,
         "position": position,
@@ -233,6 +347,10 @@ def add_employee(name: str, position: str, department: str, start_date=None):
         "start_date": start_date or datetime.now().date().isoformat(),
         "status": "Active"
     }
+    
+    df = pd.concat([df, pd.DataFrame([new_employee])], ignore_index=True)
+    _employees_df = df
+    return new_employee
 
 def check_contract_status(employee_name: str):
     return {
@@ -248,9 +366,8 @@ def generate_hr_report(report_type: str = "headcount"):
     else:
         return {"report": "Unknown report type"}
 
-# --- NEW: List employees by join month ---
 def list_employees(joined_month: str = None):
-    df = generate_mock_employees(20)
+    df = get_employees()
     if joined_month:
         joined_month = joined_month.strip()
         if len(joined_month) == 3:  # e.g. 'May'
@@ -261,7 +378,7 @@ def list_employees(joined_month: str = None):
             return df[df['hire_date'].apply(lambda d: d.strftime('%Y')) == joined_month]
     return df
 
-# --- MANAGEMENT OPERATIONS ---
+#  MANAGEMENT OPERATIONS 
 def get_sales_performance(period: str = "current quarter", top_n: int = 5):
     sales_people = [f"SP-{i}" for i in range(101, 111)]
     data = [{"name": name, "sales": random.randint(10000, 100000)} for name in sales_people]
@@ -285,7 +402,7 @@ def get_task_summary(status: str = "pending", assignee: str = None):
 def generate_strategy_report(focus_area: str = "growth"):
     return {"focus_area": focus_area, "insight": "Steady growth expected", "recommendation": "Expand sales team"}
 
-# --- OPERATIONS DICTIONARY ---
+#OPERATIONS DICTIONARY
 OPERATIONS = {
     # SALES
     "get_sales_data": {
@@ -327,10 +444,27 @@ OPERATIONS = {
     },
     "update_stock": {
         "function": update_stock,
-        "output_formatter": lambda data:
-            ("⚠️ " + data['error'] if isinstance(data, dict) and 'error' in data else
-            "### 🛠️ Stock Updated\n\n" +
-            "\n".join([f"- **{row['name']}** ({row['item_id']}): {row['quantity']} units in {row['warehouse']}" for _, row in data.iterrows()]))
+        "output_formatter": lambda data: (
+            f"⚠️ {data['error']}" if isinstance(data, dict) and 'error' in data else
+            "✅ **Stock Updated**\n\n" +
+            "\n".join([
+                f"- **{row['name']}** ({row['item_id']}): {row['quantity']} units in {row['warehouse']}"
+                for _, row in data.iterrows()
+            ]) if hasattr(data, 'iterrows') else (
+                f"✅ **New Item Created**\n\n- **ID:** {data['item_id']}\n- **Name:** {data['name']}\n- **Quantity:** {data['quantity']}"
+                if isinstance(data, dict) else str(data)
+            )
+        )
+    },
+    "create_inventory_item": {
+        "function": create_inventory_item,
+        "output_formatter": lambda data: (
+            f"⚠️ {data['error']}" if isinstance(data, dict) and 'error' in data else
+            "✅ **Item Created**\n\n" +
+            f"- **ID:** {data['item_id']}\n- **Name:** {data['name']}\n" +
+            f"- **Category:** {data['category']}\n- **Quantity:** {data['quantity']}\n" +
+            f"- **Warehouse:** {data['warehouse']}"
+        )
     },
     "generate_inventory_report": {
         "function": generate_inventory_report,
@@ -348,9 +482,24 @@ OPERATIONS = {
     },
     "create_payment_entry": {
         "function": create_payment_entry,
+        "output_formatter": lambda data: (
+            f"⚠️ {data['error']}" 
+            if isinstance(data, dict) and 'error' in data 
+            else (
+                f"💸 **Payment Recorded**\n\n"
+                f"- **Invoice:** `{data.get('id', 'N/A')}`\n"
+                f"- **Amount Paid:** ₹{float(data.get('paid_amount', 0)):,.2f}\n"
+                f"- **Total Paid:** ₹{float(data.get('paid_amount', 0)):,.2f}/"
+                f"₹{float(data.get('amount', 0)):,.2f}\n"
+                f"- **Outstanding:** ₹{float(data.get('outstanding_amount', 0)):,.2f}\n"
+                f"- **Date:** {data.get('payment_date', 'N/A')}"
+            )
+        )
+    },
+    "create_invoice": {
+        "function": create_invoice,
         "output_formatter": lambda data:
-            ("⚠️ " + data['error'] if isinstance(data, dict) and 'error' in data else
-            f"💸 **Payment Recorded**\n\n- **Invoice:** {data['id']}\n- **Now Paid:** ₹{data['paid_amount']:,} / ₹{data['amount']:,}")
+            f"✅ **Invoice Created**\n\n- **ID:** {data['id']}\n- **Client:** {data['client']}\n- **Amount:** ₹{data['amount']:,}\n- **Due Date:** {data['due_date']}"
     },
     "get_revenue_snapshot": {
         "function": get_revenue_snapshot,

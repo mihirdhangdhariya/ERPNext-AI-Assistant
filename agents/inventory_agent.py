@@ -3,7 +3,8 @@ from mock_erp.operations import (
     get_stock_levels,
     get_low_stock_items,
     update_stock,
-    generate_inventory_report
+    generate_inventory_report,
+    create_inventory_item
 )
 from workflows.param_wrappers import tool_with_named_args
 from langchain_core.tools import Tool
@@ -24,7 +25,22 @@ class InventoryAgent(BaseAgent):
             Tool(
                 name="UpdateStock",
                 func=tool_with_named_args(update_stock),
-                description="Update stock quantity for a given item and warehouse."
+                description=(
+                    "Update stock quantity. "
+                    "Parameters: item_id (required), quantity (required), warehouse (optional). "
+                    "Example: 'item_id=ITEM-30001, quantity=50, warehouse=Main'"
+                )
+            ),
+            Tool(
+                name="CreateInventoryItem",
+                func=tool_with_named_args(create_inventory_item),
+                description=(
+                    "Create a new inventory item. "
+                    "Parameters: item_id (required), name (required), category (optional), "
+                    "quantity (optional, default 0), reorder_level (optional, default 10), "
+                    "warehouse (optional, default 'Main'). "
+                    "Example: 'item_id=ITEM-30001, name=Product XYZ, category=Electronics, quantity=50'"
+                )
             ),
             Tool(
                 name="GenerateInventoryReport",

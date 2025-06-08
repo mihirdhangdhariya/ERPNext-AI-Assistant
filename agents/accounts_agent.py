@@ -3,7 +3,8 @@ from mock_erp.operations import (
     get_unpaid_invoices,
     create_payment_entry,
     get_revenue_snapshot,
-    generate_financial_statement
+    generate_financial_statement,
+    create_invoice
 )
 from workflows.param_wrappers import tool_with_named_args
 from langchain_core.tools import Tool
@@ -17,9 +18,13 @@ class AccountsAgent(BaseAgent):
                 description="Retrieve unpaid invoices optionally filtered by client."
             ),
             Tool(
-                name="CreatePaymentEntry",
+                name="create_payment_entry",
                 func=tool_with_named_args(create_payment_entry),
-                description="Record a payment against an invoice. Parameters: invoice_id (format: INV-XXXXX), amount (number), payment_date (optional, format: YYYY-MM-DD)"
+                description=(
+                    "Record a payment against an invoice. "
+                    "Parameters: invoice_id (required), amount (required), payment_date (optional). "
+                    "Example: 'invoice_id=\"INV-50001\", amount=5000'"
+                )
             ),
             Tool(
                 name="GetRevenueSnapshot",
@@ -30,6 +35,15 @@ class AccountsAgent(BaseAgent):
                 name="GenerateFinancialStatement",
                 func=tool_with_named_args(generate_financial_statement),
                 description="Generate financial statements. Parameters: statement_type (e.g. 'P&L', 'Balance Sheet'), period (e.g. 'last quarter')."
+            ),
+            Tool(
+                name="CreateInvoice",
+                func=tool_with_named_args(create_invoice),
+                description=(
+                    "Create a new invoice. "
+                    "Parameters: client (required), amount (required), due_date (optional). "
+                    "Example: 'client=Global Tech, amount=10000'"
+                )
             ),
         ]
         super().__init__("Accounts", tools, use_hnsw=use_hnsw)

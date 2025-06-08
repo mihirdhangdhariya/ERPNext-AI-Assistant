@@ -1,7 +1,6 @@
 import os
 import logging
 import time
-import traceback
 import asyncio
 import faiss
 from langchain.agents import initialize_agent, AgentType
@@ -19,7 +18,7 @@ class BaseAgent:
             openai_api_base="https://api.together.xyz/v1",
             model="meta-llama/Llama-3-70b-chat-hf",
             temperature=0.3,
-            max_tokens=1024,  # Increased for better responses
+            max_tokens=512,
         )
         self.department = department
         self.tools = tools
@@ -31,15 +30,17 @@ class BaseAgent:
         self._load_context()
 
         try:
+            # CRITICAL FIX: Use the correct agent type for multiple parameters
             self.agent_executor = initialize_agent(
                 tools=self.tools,
                 llm=self.llm,
                 agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
                 verbose=True,
                 handle_parsing_errors=True,
-                max_iterations=5,  # Increased for complex operations
+                max_iterations=3,
                 early_stopping_method="generate",
-                return_intermediate_steps=False
+                return_intermediate_steps=False,
+                input_variables=["input", "agent_scratchpad"]
             )
             logger.info(f"✅ {department} agent initialized successfully")
         except Exception as e:
@@ -54,13 +55,8 @@ class BaseAgent:
             logger.error(f"Context loading failed: {str(e)}")
             self.context_manager.index = faiss.IndexFlatL2(self.context_manager.dim)
 
-    def get_context_stats(self) -> dict:
-        """Return info about memory size and FAISS index."""
-        return {
-            "entries": len(self.context_manager.context_data),
-            "vectors": self.context_manager.index.ntotal,
-            "dimensions": self.context_manager.dim
-        }
+    def get_context_stats(self):
+        return self.context_manager.get_context_stats()
 
     def run(self, query):
         if not self.agent_executor:
@@ -74,7 +70,7 @@ class BaseAgent:
             logger.info(f"Agent input: {full_query}")
             result = asyncio.run(self._invoke_with_timeout(
                 {"input": full_query},
-                timeout=45  # Increased timeout
+                timeout=30
             ))
             response = result["output"]
         except asyncio.TimeoutError:
@@ -90,7 +86,7 @@ class BaseAgent:
             self.context_manager.store_interaction(query, response, self.department)
         return response, context_entries
 
-    async def _invoke_with_timeout(self, input, timeout=45):
+    async def _invoke_with_timeout(self, input, timeout=30):
         return await asyncio.wait_for(
             self.agent_executor.ainvoke(input),
             timeout=timeout

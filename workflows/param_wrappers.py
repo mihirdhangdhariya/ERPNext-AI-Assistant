@@ -1,17 +1,35 @@
 import inspect
 import json
+# workflows/param_wrappers.py
+import re
 
 def tool_with_named_args(func):
+    def wrapper(input_str: str):
+        params = {}
+        pattern = r'(\w+)=("[^"]+"|[^,]+)'
+        matches = re.findall(pattern, input_str)
+        
+        for key, value in matches:
+            # Clean and convert values
+            value = value.strip().strip('"')
+        
+            if '=' in value:
+                value = value.split('=')[-1].strip()
+            
+            
+            if re.match(r'^-?\d+(\.\d+)?$', value):
+                params[key] = float(value)
+            else:
+                params[key] = value
+        
+        return func(**params)
+    return wrapper
     def wrapper(input_data):
-        # Try to parse input_data as dict, JSON, or fallback to positional mapping.
-        sig = inspect.signature(func)
-        params = list(sig.parameters.keys())
 
-        # If input_data is already a dict (preferred by agent)
         if isinstance(input_data, dict):
             return func(**input_data)
-
-        # Try to parse as JSON
+            
+    
         if isinstance(input_data, str):
             try:
                 input_json = json.loads(input_data)
@@ -19,20 +37,33 @@ def tool_with_named_args(func):
                     return func(**input_json)
                 elif isinstance(input_json, list):
                     return func(*input_json)
+            except json.JSONDecodeError:
+        
+                pass
             except Exception:
                 pass
 
-        # Fallback: comma-separated string
+    
         if isinstance(input_data, str) and "," in input_data:
             values = [x.strip() for x in input_data.split(",")]
-            # Map to parameters
+            params = list(inspect.signature(func).parameters.keys())
             args = {k: v for k, v in zip(params, values)}
             return func(**args)
+            
 
-        # Fallback: single string as first arg
         if isinstance(input_data, str):
-            return func(**{params[0]: input_data})
+            pattern = r'(\w+)\s*=\s*([^,]+)'
+            matches = re.findall(pattern, input_data)
+            if matches:
+                args = {k: v.strip('\'" ') for k, v in matches}
+                return func(**args)
 
-        # Fallback: just call with input_data
+    
+        if isinstance(input_data, str):
+            params = list(inspect.signature(func).parameters.keys())
+            if params:
+                return func(**{params[0]: input_data})
+                
+
         return func(input_data)
     return wrapper

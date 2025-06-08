@@ -34,5 +34,3 @@ def execute_workflow(operation_name: str, params: dict) -> str:
         if correction:
             return execute_workflow(operation_name, correction)
         return f"❌ Operation failed: {str(e)}"
-
-# Note: The OPERATIONS dictionary is expected to be defined in mock_erp/operations.py
